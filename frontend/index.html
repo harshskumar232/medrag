@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MedRAG — Clinical Intelligence Suite</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f7f6f2; --bg2: #eeecea; --surface: #ffffff; --surface2: #f2f0ec;
+  --border: #e0ddd8; --border2: #ccc9c2; --ink: #1a1916; --ink2: #5a5750;
+  --ink3: #9a9790; --teal: #0a7c6e; --teal-light: #e0f2ef; --teal-mid: #c2e8e3;
+  --red: #c0392b; --red-light: #fcecea; --amber: #b7650a; --amber-light: #fef3e2;
+  --blue: #1a5fa8; --blue-light: #e8f0fb; --radius: 16px;
+  --shadow: 0 2px 12px rgba(26,25,22,0.08); --shadow-lg: 0 8px 32px rgba(26,25,22,0.12);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--ink); font-family: 'Syne', sans-serif; font-size: 13px; min-height: 100vh; display: flex; flex-direction: column; }
+body::after { content:''; position:fixed; inset:0; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events:none; z-index:9999; opacity:0.4; }
+
+/* Header */
+header { background:var(--surface); border-bottom:1px solid var(--border); padding:0 28px; display:flex; align-items:center; justify-content:space-between; height:60px; box-shadow:var(--shadow); position:relative; z-index:50; }
+.logo { display:flex; align-items:center; gap:10px; }
+.logo-mark { width:36px; height:36px; background:var(--teal); border-radius:10px; display:flex; align-items:center; justify-content:center; color:white; font-size:18px; font-family:'Instrument Serif',serif; font-style:italic; }
+.logo-name { font-family:'Instrument Serif',serif; font-size:22px; letter-spacing:-0.5px; }
+.logo-name em { color:var(--teal); font-style:normal; }
+.logo-tag { font-size:10px; color:var(--ink3); margin-left:4px; }
+.header-right { display:flex; align-items:center; gap:10px; }
+.api-row { display:flex; align-items:center; gap:8px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:6px 12px; }
+.api-row label { font-size:10px; color:var(--ink3); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
+#api-key { background:none; border:none; outline:none; font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink); width:220px; }
+#api-key::placeholder { color:var(--ink3); }
+.conn-badge { display:none; font-size:10px; color:var(--teal); background:var(--teal-light); padding:2px 8px; border-radius:20px; font-weight:700; }
+.conn-badge.on { display:block; }
+.stats-pills { display:flex; gap:6px; }
+.pill { font-size:11px; padding:4px 10px; border-radius:20px; background:var(--surface2); border:1px solid var(--border); color:var(--ink2); font-weight:500; }
+.pill span { color:var(--teal); font-weight:700; }
+
+/* Backend status */
+.backend-bar { padding:6px 28px; border-bottom:1px solid var(--border); font-size:11px; display:flex; align-items:center; gap:8px; }
+.backend-bar.ok { background:var(--teal-light); color:var(--teal); }
+.backend-bar.err { background:var(--red-light); color:var(--red); }
+.backend-bar.warn { background:var(--amber-light); color:var(--amber); }
+
+/* Disclaimer */
+.disclaimer { background:var(--amber-light); border-bottom:1px solid #f0d9b5; padding:7px 28px; font-size:11px; color:var(--amber); display:flex; align-items:center; gap:8px; font-weight:500; }
+
+/* Layout */
+.app { display:grid; grid-template-columns:300px 1fr; flex:1; height:calc(100vh - 110px); overflow:hidden; }
+.sidebar { background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+.sidebar-scroll { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:14px; }
+.sidebar-scroll::-webkit-scrollbar { width:3px; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background:var(--border2); }
+
+/* Cards */
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+.card-header { padding:12px 14px 10px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
+.card-icon { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+.card-icon.teal { background:var(--teal-light); }
+.card-icon.blue { background:var(--blue-light); }
+.card-icon.amber { background:var(--amber-light); }
+.card-icon.red { background:var(--red-light); }
+.card-title { font-size:12px; font-weight:700; color:var(--ink); }
+.card-body { padding:12px 14px; }
+
+/* Drop zone */
+.dz { border:1.5px dashed var(--border2); border-radius:12px; padding:20px 12px; text-align:center; cursor:pointer; transition:all .2s; background:var(--bg); }
+.dz:hover,.dz.over { border-color:var(--teal); background:var(--teal-light); }
+.dz .dz-ico { font-size:24px; margin-bottom:6px; }
+.dz p { font-size:11px; color:var(--ink3); line-height:1.6; }
+.dz strong { color:var(--teal); }
+#file-input { display:none; }
+.proc-bar { height:3px; border-radius:2px; margin-top:8px; background:linear-gradient(90deg,var(--teal),#5ce6d8,var(--teal)); background-size:200%; animation:scan 1.5s linear infinite; display:none; }
+.proc-bar.on { display:block; }
+@keyframes scan { from{background-position:200%}to{background-position:-200%} }
+
+/* Fields */
+.fg { display:flex; flex-direction:column; gap:8px; }
+.field { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-family:'Syne',sans-serif; font-size:12px; color:var(--ink); outline:none; transition:border-color .2s; }
+.field:focus { border-color:var(--teal); }
+.field::placeholder { color:var(--ink3); }
+textarea.field { resize:vertical; min-height:80px; line-height:1.6; }
+
+/* Buttons */
+.btn { border:none; cursor:pointer; font-family:'Syne',sans-serif; font-size:12px; font-weight:600; border-radius:10px; padding:9px 16px; transition:all .2s; display:flex; align-items:center; gap:6px; justify-content:center; }
+.btn-teal { background:var(--teal); color:white; }
+.btn-teal:hover { background:#0a6a5e; transform:translateY(-1px); box-shadow:0 4px 12px rgba(10,124,110,.25); }
+.btn-teal:disabled { opacity:.4; cursor:not-allowed; transform:none; box-shadow:none; }
+.btn-outline { background:none; color:var(--ink2); border:1px solid var(--border); }
+.btn-outline:hover { border-color:var(--border2); background:var(--bg2); }
+.btn-sm { padding:5px 10px; font-size:11px; border-radius:7px; }
+
+/* Settings */
+.sr { display:flex; align-items:center; justify-content:space-between; padding:5px 0; }
+.sl { font-size:11px; color:var(--ink2); font-weight:500; }
+.sv { background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:3px 8px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink); width:64px; text-align:right; outline:none; }
+
+/* Doc list */
+.doc-list { display:flex; flex-direction:column; gap:4px; }
+.doc-row { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; border:1px solid transparent; transition:all .15s; }
+.doc-row:hover { background:var(--bg); border-color:var(--border); }
+.doc-badge { font-size:9px; font-weight:700; padding:2px 6px; border-radius:4px; text-transform:uppercase; letter-spacing:.5px; flex-shrink:0; }
+.bt { background:var(--teal-light); color:var(--teal); }
+.bp { background:var(--red-light); color:var(--red); }
+.bc { background:var(--amber-light); color:var(--amber); }
+.bm { background:var(--blue-light); color:var(--blue); }
+.bj { background:#f0e8ff; color:#6c3fc5; }
+.doc-info { flex:1; min-width:0; }
+.doc-name { font-size:11px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.doc-meta { font-size:10px; color:var(--ink3); margin-top:1px; }
+.doc-del { background:none; border:none; cursor:pointer; color:var(--ink3); font-size:13px; opacity:0; transition:opacity .15s; padding:2px 4px; }
+.doc-row:hover .doc-del { opacity:1; }
+.empty-msg { font-size:11px; color:var(--ink3); text-align:center; padding:24px 0; line-height:1.8; }
+
+/* Main */
+.main { display:flex; flex-direction:column; overflow:hidden; }
+.agent-tabs { display:flex; background:var(--surface); border-bottom:1px solid var(--border); padding:0 20px; gap:2px; }
+.at { display:flex; align-items:center; gap:8px; padding:14px 20px; border:none; background:none; cursor:pointer; font-family:'Syne',sans-serif; font-size:12px; font-weight:600; color:var(--ink3); border-bottom:2.5px solid transparent; margin-bottom:-1px; transition:all .2s; }
+.at:hover { color:var(--ink); }
+.at.active { color:var(--teal); border-bottom-color:var(--teal); }
+.at .ti { width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:13px; background:var(--bg2); transition:background .2s; }
+.at.active .ti { background:var(--teal-light); }
+.tb { font-size:9px; padding:2px 6px; border-radius:10px; background:var(--teal-light); color:var(--teal); font-weight:700; }
+
+/* Panels */
+.panel { display:none; flex:1; flex-direction:column; overflow:hidden; }
+.panel.active { display:flex; }
+
+/* Chat */
+.chat-area { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:16px; }
+.chat-area::-webkit-scrollbar { width:4px; }
+.chat-area::-webkit-scrollbar-thumb { background:var(--border2); }
+
+.welcome { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; text-align:center; padding:40px; }
+.wc { width:60px; height:60px; background:var(--teal-light); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:28px; animation:pulse 3s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(10,124,110,.15)}50%{box-shadow:0 0 0 14px rgba(10,124,110,0)} }
+.welcome h2 { font-family:'Instrument Serif',serif; font-size:22px; font-weight:400; }
+.welcome p { font-size:12px; color:var(--ink2); line-height:1.8; max-width:400px; }
+.chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:6px; }
+.chip { font-size:11px; font-weight:500; padding:7px 14px; border-radius:20px; background:var(--surface); border:1px solid var(--border); color:var(--ink2); cursor:pointer; transition:all .15s; }
+.chip:hover { border-color:var(--teal); color:var(--teal); background:var(--teal-light); }
+
+.message { display:flex; gap:12px; animation:fu .3s ease; }
+@keyframes fu { from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)} }
+.message.user { flex-direction:row-reverse; }
+.mav { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; border:1.5px solid var(--border); }
+.message.user .mav { background:var(--teal); color:white; border-color:var(--teal); }
+.message.assistant .mav { background:var(--surface2); }
+.mwrap { max-width:75%; }
+.mfrom { font-size:10px; color:var(--ink3); font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px; }
+.message.user .mfrom { text-align:right; }
+.mbody { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:11px 15px; font-size:13px; line-height:1.75; white-space:pre-wrap; word-break:break-word; box-shadow:var(--shadow); }
+.message.user .mbody { background:var(--teal); color:white; border-color:var(--teal); border-bottom-right-radius:4px; }
+.message.assistant .mbody { border-bottom-left-radius:4px; }
+.msrcs { display:flex; flex-wrap:wrap; gap:5px; margin-top:7px; }
+.stag { font-size:10px; font-weight:600; padding:3px 9px; border-radius:20px; background:var(--teal-light); color:var(--teal); border:1px solid var(--teal-mid); cursor:pointer; transition:all .15s; }
+.stag:hover { background:var(--teal-mid); }
+.score-badge { font-size:9px; opacity:.7; }
+
+.typing .mbody { display:flex; gap:5px; align-items:center; padding:14px 18px; }
+.dot { width:6px; height:6px; border-radius:50%; background:var(--ink3); animation:b 1.2s infinite; }
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes b { 0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)} }
+
+.chat-input-wrap { padding:14px 20px; border-top:1px solid var(--border); background:var(--surface); }
+.irow { display:flex; gap:8px; align-items:flex-end; }
+.iwrap { flex:1; position:relative; }
+#rag-input { width:100%; background:var(--bg); border:1.5px solid var(--border); border-radius:12px; padding:10px 42px 10px 14px; font-family:'Syne',sans-serif; font-size:13px; color:var(--ink); outline:none; resize:none; min-height:44px; max-height:140px; line-height:1.5; transition:border-color .2s; }
+#rag-input:focus { border-color:var(--teal); }
+#rag-input::placeholder { color:var(--ink3); }
+.sbtn { position:absolute; right:8px; bottom:8px; width:28px; height:28px; background:var(--teal); color:white; border:none; border-radius:8px; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+.sbtn:hover { background:#0a6a5e; }
+.sbtn:disabled { opacity:.3; cursor:not-allowed; }
+.imeta { display:flex; justify-content:space-between; font-size:10px; color:var(--ink3); margin-top:7px; }
+
+/* Summary Agent */
+.summ-workspace { flex:1; display:grid; grid-template-columns:1fr 1fr; overflow:hidden; }
+.sp-left,.sp-right { display:flex; flex-direction:column; overflow:hidden; }
+.sp-left { border-right:1px solid var(--border); }
+.ph { padding:12px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:var(--surface); }
+.ph-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--ink2); }
+.sform { flex:1; overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:14px; }
+.fl { font-size:11px; font-weight:700; color:var(--ink2); text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; }
+.type-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.topt { padding:10px; border-radius:10px; border:1.5px solid var(--border); background:var(--bg); cursor:pointer; text-align:center; transition:all .15s; font-size:11px; font-weight:600; color:var(--ink2); }
+.topt:hover { border-color:var(--teal); color:var(--teal); }
+.topt.active { background:var(--teal-light); border-color:var(--teal); color:var(--teal); }
+.topt .ti2 { font-size:20px; display:block; margin-bottom:4px; }
+.fmts { display:flex; gap:6px; flex-wrap:wrap; }
+.fbt { font-size:10px; font-weight:600; padding:5px 10px; border-radius:20px; border:1px solid var(--border); background:var(--bg); cursor:pointer; transition:all .15s; color:var(--ink2); }
+.fbt.active { background:var(--teal); color:white; border-color:var(--teal); }
+.sresult { flex:1; overflow-y:auto; padding:18px; background:var(--bg); }
+.sresult::-webkit-scrollbar { width:3px; }
+.sresult::-webkit-scrollbar-thumb { background:var(--border2); }
+.re { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:12px; color:var(--ink3); text-align:center; }
+.re .rei { font-size:40px; opacity:.3; }
+.rc { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; font-size:13px; line-height:1.8; color:var(--ink); white-space:pre-wrap; box-shadow:var(--shadow); }
+
+/* Symptom panel */
+.sym-layout { flex:1; display:grid; grid-template-columns:1fr 1fr; overflow:hidden; }
+.sym-l,.sym-r { display:flex; flex-direction:column; overflow:hidden; }
+.sym-l { border-right:1px solid var(--border); }
+.symform { flex:1; overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:14px; }
+.symform::-webkit-scrollbar { width:3px; }
+.symform::-webkit-scrollbar-thumb { background:var(--border2); }
+.symtags { display:flex; flex-wrap:wrap; gap:6px; }
+.symtag { font-size:11px; font-weight:600; padding:5px 12px; border-radius:20px; background:var(--surface); border:1px solid var(--border); cursor:pointer; transition:all .15s; color:var(--ink2); }
+.symtag:hover { border-color:var(--teal); color:var(--teal); }
+.symtag.sel { background:var(--teal); color:white; border-color:var(--teal); }
+.vgrid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.vi { display:flex; flex-direction:column; gap:4px; }
+.vl { font-size:10px; font-weight:700; color:var(--ink3); text-transform:uppercase; letter-spacing:.3px; }
+.ases { display:flex; gap:8px; }
+.sexrow { display:flex; gap:6px; flex:1; }
+.sxbtn { flex:1; padding:7px 10px; border-radius:8px; border:1.5px solid var(--border); background:var(--bg); font-family:'Syne',sans-serif; font-size:11px; font-weight:600; cursor:pointer; transition:all .15s; color:var(--ink2); }
+.sxbtn.active { background:var(--blue-light); border-color:var(--blue); color:var(--blue); }
+.sym-result { flex:1; overflow-y:auto; padding:18px; background:var(--bg); }
+.sym-result::-webkit-scrollbar { width:3px; }
+.sym-result::-webkit-scrollbar-thumb { background:var(--border2); }
+
+/* Result cards */
+.rcard { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:10px; box-shadow:var(--shadow); animation:fu .3s ease; }
+.rch { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.rci { font-size:18px; }
+.rct { font-weight:700; font-size:13px; color:var(--ink); flex:1; }
+.sbadge { font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; text-transform:uppercase; letter-spacing:.5px; }
+.sl-low { background:var(--teal-light); color:var(--teal); }
+.sl-med { background:var(--amber-light); color:var(--amber); }
+.sl-high { background:var(--red-light); color:var(--red); }
+.rcb { font-size:12px; line-height:1.7; color:var(--ink2); }
+.pbw { margin:8px 0; }
+.pbl { display:flex; justify-content:space-between; font-size:10px; color:var(--ink3); margin-bottom:4px; font-weight:600; }
+.pbt { height:6px; background:var(--bg2); border-radius:3px; overflow:hidden; }
+.pbf { height:100%; border-radius:3px; transition:width .6s ease; }
+.fh { background:var(--red); } .fm { background:var(--amber); } .fl2 { background:var(--teal); }
+
+/* Loading */
+.aload { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:16px; color:var(--ink3); }
+.spinner { width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--teal); border-radius:50%; animation:spin .8s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* Modal */
+.mbg { display:none; position:fixed; inset:0; background:rgba(26,25,22,.5); z-index:200; backdrop-filter:blur(4px); align-items:center; justify-content:center; }
+.mbg.open { display:flex; }
+.mbox { background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:24px; width:90%; max-width:540px; max-height:70vh; overflow-y:auto; box-shadow:var(--shadow-lg); animation:mi .25s ease; }
+@keyframes mi { from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)} }
+.mt { font-family:'Instrument Serif',serif; font-size:18px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; }
+.mc { background:none; border:none; cursor:pointer; font-size:18px; color:var(--ink3); }
+.mb { font-size:12px; line-height:1.8; color:var(--ink2); white-space:pre-wrap; }
+
+/* Toast */
+.toast { position:fixed; bottom:24px; right:24px; background:var(--ink); color:white; border-radius:10px; padding:10px 16px; font-size:12px; z-index:999; animation:ti .25s ease; display:flex; gap:8px; align-items:center; box-shadow:var(--shadow-lg); }
+@keyframes ti { from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">M</div>
+    <div>
+      <div class="logo-name">Med<em>RAG</em></div>
+    </div>
+    <div class="logo-tag">Clinical Intelligence Suite — Full Stack</div>
+  </div>
+  <div class="header-right">
+    <div class="api-row">
+      <label>API KEY</label>
+      <input type="password" id="api-key" placeholder="sk-ant-..." oninput="onKey()">
+      <div class="conn-badge" id="conn-badge">● Live</div>
+    </div>
+    <div class="stats-pills">
+      <div class="pill"><span id="s-docs">0</span> docs</div>
+      <div class="pill"><span id="s-chunks">0</span> chunks</div>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="resetAll()">⟳ Reset</button>
+  </div>
+</header>
+
+<div class="backend-bar warn" id="backend-bar">
+  ⏳ Connecting to backend at http://localhost:8000…
+</div>
+
+<div class="disclaimer">
+  ⚕️ <strong>Medical Disclaimer:</strong> For informational/research use only. Not a substitute for professional medical advice. Consult a qualified healthcare professional.
+</div>
+
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-scroll">
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon teal">📋</div>
+          <div class="card-title">Upload Medical Documents</div>
+        </div>
+        <div class="card-body">
+          <div class="dz" id="dz" onclick="document.getElementById('file-input').click()"
+               ondragover="onDO(event)" ondragleave="onDL()" ondrop="onDP(event)">
+            <div class="dz-ico">📂</div>
+            <p>Drop files or <strong>click to browse</strong><br><strong>.txt .md .pdf .csv .json</strong></p>
+          </div>
+          <input type="file" id="file-input" multiple accept=".txt,.md,.csv,.json,.pdf" onchange="handleFiles(this.files)">
+          <div class="proc-bar" id="pb"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon blue">✏️</div>
+          <div class="card-title">Paste Clinical Notes</div>
+        </div>
+        <div class="card-body">
+          <div class="fg">
+            <input type="text" class="field" id="pt" placeholder="Document title">
+            <textarea class="field" id="ptxt" placeholder="Paste clinical notes, lab results…"></textarea>
+            <button class="btn btn-teal" onclick="ingestPaste()">Index Document →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon amber">⚙️</div>
+          <div class="card-title">Pipeline Settings</div>
+        </div>
+        <div class="card-body">
+          <div class="sr"><span class="sl">Chunk size (chars)</span><input type="number" class="sv" id="cs" value="450" min="100" max="2000"></div>
+          <div class="sr"><span class="sl">Overlap</span><input type="number" class="sv" id="co" value="80" min="0" max="400"></div>
+          <div class="sr"><span class="sl">Top-K results</span><input type="number" class="sv" id="tk" value="5" min="1" max="10"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon red">📚</div>
+          <div class="card-title">Knowledge Base</div>
+        </div>
+        <div class="card-body">
+          <div class="doc-list" id="doc-list"><div class="empty-msg">No documents indexed yet.</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="agent-tabs">
+      <button class="at active" onclick="switchTab('rag')" id="tab-rag">
+        <div class="ti">🔍</div>Medical RAG Chat<div class="tb">RAG</div>
+      </button>
+      <button class="at" onclick="switchTab('summary')" id="tab-summary">
+        <div class="ti">📋</div>Summary Agent<div class="tb">AI</div>
+      </button>
+      <button class="at" onclick="switchTab('symptom')" id="tab-symptom">
+        <div class="ti">🩺</div>Symptom Checker<div class="tb">AI</div>
+      </button>
+    </div>
+
+    <!-- RAG Chat Panel -->
+    <div class="panel active" id="panel-rag">
+      <div class="chat-area" id="chat-area">
+        <div class="welcome" id="welcome">
+          <div class="wc">⚕️</div>
+          <h2>Medical Knowledge Assistant</h2>
+          <p>Upload clinical documents, then ask questions with full source traceability.</p>
+          <div class="chips">
+            <div class="chip" onclick="useChip(this)">Summarize patient history</div>
+            <div class="chip" onclick="useChip(this)">What medications are mentioned?</div>
+            <div class="chip" onclick="useChip(this)">List all diagnoses</div>
+            <div class="chip" onclick="useChip(this)">Any contraindications?</div>
+            <div class="chip" onclick="useChip(this)">Key lab findings?</div>
+          </div>
+        </div>
+      </div>
+      <div class="chat-input-wrap">
+        <div class="irow">
+          <div class="iwrap">
+            <textarea id="rag-input" placeholder="Ask a clinical question about your documents…" rows="1"
+              onkeydown="onRK(event)" oninput="aR(this)"></textarea>
+            <button class="sbtn" id="rsend" onclick="sendRag()">↑</button>
+          </div>
+        </div>
+        <div class="imeta">
+          <span>⚕️ Semantic RAG — <span id="cc">0</span> chunks indexed</span>
+          <span>Enter to send · Shift+Enter for newline</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Panel -->
+    <div class="panel" id="panel-summary">
+      <div style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+        <div class="summ-workspace">
+          <div class="sp-left">
+            <div class="ph"><div class="ph-title">📋 Configuration</div></div>
+            <div class="sform">
+              <div>
+                <div class="fl">Document Type</div>
+                <div class="type-grid">
+                  <div class="topt active" onclick="sT(this,'patient_record')"><span class="ti2">🏥</span>Patient Record</div>
+                  <div class="topt" onclick="sT(this,'lab_report')"><span class="ti2">🔬</span>Lab Report</div>
+                  <div class="topt" onclick="sT(this,'research_paper')"><span class="ti2">📄</span>Research Paper</div>
+                  <div class="topt" onclick="sT(this,'discharge_summary')"><span class="ti2">📝</span>Discharge Note</div>
+                  <div class="topt" onclick="sT(this,'drug_pharma')"><span class="ti2">💊</span>Drug/Pharma</div>
+                  <div class="topt" onclick="sT(this,'case_notes')"><span class="ti2">🗒️</span>Case Notes</div>
+                </div>
+              </div>
+              <div>
+                <div class="fl">Output Format</div>
+                <div class="fmts">
+                  <div class="fbt active" onclick="sF(this,'structured')">Structured</div>
+                  <div class="fbt" onclick="sF(this,'narrative')">Narrative</div>
+                  <div class="fbt" onclick="sF(this,'bullet_points')">Bullet Points</div>
+                  <div class="fbt" onclick="sF(this,'soap')">SOAP Note</div>
+                  <div class="fbt" onclick="sF(this,'discharge')">Discharge</div>
+                </div>
+              </div>
+              <div>
+                <div class="fl">Focus Areas (optional)</div>
+                <input type="text" class="field" id="focus" placeholder="e.g. medications, diagnoses, follow-up">
+              </div>
+              <div>
+                <div class="fl">Custom Text (or use indexed docs)</div>
+                <textarea class="field" id="scustom" placeholder="Paste text to summarize, or leave empty to use indexed documents…" style="min-height:100px;"></textarea>
+              </div>
+              <button class="btn btn-teal" id="summ-btn" onclick="runSummary()">✦ Generate Summary</button>
+            </div>
+          </div>
+          <div class="sp-right">
+            <div class="ph">
+              <div class="ph-title">📄 Generated Summary</div>
+              <button class="btn btn-outline btn-sm" onclick="copySumm()">Copy</button>
+            </div>
+            <div class="sresult" id="sresult">
+              <div class="re"><div class="rei">📋</div><p style="font-size:12px;line-height:1.8;">Configure and click <strong>Generate Summary</strong></p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Symptom Panel -->
+    <div class="panel" id="panel-symptom">
+      <div class="sym-layout">
+        <div class="sym-l">
+          <div class="ph"><div class="ph-title">🩺 Patient Presentation</div></div>
+          <div class="symform">
+            <div>
+              <div class="fl">Age & Sex</div>
+              <div class="ases">
+                <input type="number" class="field" id="pt-age" placeholder="Age" min="0" max="120" style="width:80px">
+                <div class="sexrow">
+                  <button class="sxbtn active" onclick="sSx(this,'M')">♂ Male</button>
+                  <button class="sxbtn" onclick="sSx(this,'F')">♀ Female</button>
+                  <button class="sxbtn" onclick="sSx(this,'O')">⊕ Other</button>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="fl">Symptoms (select all)</div>
+              <div class="symtags" id="symtags"></div>
+            </div>
+            <div>
+              <div class="fl">Vitals (optional)</div>
+              <div class="vgrid">
+                <div class="vi"><div class="vl">Temp °C</div><input type="number" class="field" id="v-t" placeholder="37.0" step="0.1"></div>
+                <div class="vi"><div class="vl">HR bpm</div><input type="number" class="field" id="v-h" placeholder="72"></div>
+                <div class="vi"><div class="vl">BP mmHg</div><input type="text" class="field" id="v-b" placeholder="120/80"></div>
+                <div class="vi"><div class="vl">SpO₂ %</div><input type="number" class="field" id="v-s" placeholder="98"></div>
+              </div>
+            </div>
+            <div>
+              <div class="fl">Clinical Description</div>
+              <textarea class="field" id="sym-desc" placeholder="Describe onset, duration, severity…" style="min-height:80px;"></textarea>
+            </div>
+            <div>
+              <div class="fl">Medical History</div>
+              <input type="text" class="field" id="sym-hx" placeholder="e.g. diabetes, hypertension…">
+            </div>
+            <button class="btn btn-teal" id="sym-btn" onclick="runSymptom()">🩺 Analyze Symptoms</button>
+          </div>
+        </div>
+        <div class="sym-r">
+          <div class="ph">
+            <div class="ph-title">🔬 Clinical Analysis</div>
+            <button class="btn btn-outline btn-sm" onclick="document.getElementById('sym-result').innerHTML='<div class=re><div class=rei>🩺</div><p style=font-size:12px>Run analysis above</p></div>'">Clear</button>
+          </div>
+          <div class="sym-result" id="sym-result">
+            <div class="re"><div class="rei">🩺</div><p style="font-size:12px;line-height:1.8;">Enter symptoms and click <strong>Analyze</strong></p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chunk Modal -->
+<div class="mbg" id="cmod" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="mbox">
+    <div class="mt"><span id="mt">Source</span><button class="mc" onclick="document.getElementById('cmod').classList.remove('open')">✕</button></div>
+    <div class="mb" id="mb"></div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let chatHistory = [], summType = 'patient_record', summFmt = 'structured', patSex = 'M';
+let symSel = new Set();
+
+const SYMS = ['Fever','Headache','Cough','Fatigue','Chest pain','Shortness of breath','Nausea','Vomiting','Abdominal pain','Dizziness','Sore throat','Muscle aches','Joint pain','Rash','Swelling','Back pain','Loss of appetite','Palpitations','Vision changes','Numbness/Tingling'];
+
+// Init
+(function(){
+  const el = document.getElementById('symtags');
+  SYMS.forEach(s => {
+    const d = document.createElement('div');
+    d.className='symtag'; d.textContent=s;
+    d.onclick=()=>{ symSel.has(s)?(symSel.delete(s),d.classList.remove('sel')):(symSel.add(s),d.classList.add('sel')); };
+    el.appendChild(d);
+  });
+  checkBackend();
+  setInterval(checkBackend, 15000);
+})();
+
+async function checkBackend() {
+  const bar = document.getElementById('backend-bar');
+  try {
+    const r = await fetch(`${API}/api/stats`);
+    const d = await r.json();
+    bar.className='backend-bar ok';
+    bar.innerHTML=`✅ Backend connected — ${d.embedding_model} embeddings · ChromaDB at ${d.chroma_dir}`;
+    document.getElementById('s-docs').textContent = d.documents;
+    document.getElementById('s-chunks').textContent = d.total_chunks;
+    document.getElementById('cc').textContent = d.total_chunks;
+    await loadDocs();
+  } catch {
+    bar.className='backend-bar err';
+    bar.innerHTML=`❌ Backend offline — start it with: <strong>cd backend && uvicorn main:app --reload --port 8000</strong>`;
+  }
+}
+
+async function loadDocs() {
+  try {
+    const r = await fetch(`${API}/api/documents`);
+    const d = await r.json();
+    renderDocs(d.documents);
+    document.getElementById('s-docs').textContent = d.documents.length;
+    document.getElementById('s-chunks').textContent = d.total_chunks;
+    document.getElementById('cc').textContent = d.total_chunks;
+  } catch {}
+}
+
+function renderDocs(docs) {
+  const el = document.getElementById('doc-list');
+  if (!docs.length) { el.innerHTML='<div class="empty-msg">No documents indexed yet.</div>'; return; }
+  const bm = {txt:'bt',md:'bm',csv:'bc',json:'bj',pdf:'bp'};
+  el.innerHTML = docs.map(d=>`
+    <div class="doc-row">
+      <span class="doc-badge ${bm[d.type]||'bt'}">${d.type}</span>
+      <div class="doc-info">
+        <div class="doc-name" title="${d.name}">${d.name}</div>
+        <div class="doc-meta">${d.chunks} chunks · ${(d.size/1024).toFixed(1)}KB</div>
+      </div>
+      <button class="doc-del" onclick="delDoc('${d.id}')">✕</button>
+    </div>`).join('');
+}
+
+function toast(msg, ico='✓') {
+  const t=document.createElement('div'); t.className='toast';
+  t.innerHTML=`<span>${ico}</span> ${msg}`;
+  document.body.appendChild(t); setTimeout(()=>t.remove(),2800);
+}
+
+function onKey() {
+  const v=document.getElementById('api-key').value.trim();
+  document.getElementById('conn-badge').classList.toggle('on', v.startsWith('sk-ant-'));
+}
+
+function getKey() { return document.getElementById('api-key').value.trim(); }
+function aR(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,140)+'px'; }
+function switchTab(t) {
+  ['rag','summary','symptom'].forEach(id=>{
+    document.getElementById('panel-'+id).classList.toggle('active',id===t);
+    document.getElementById('tab-'+id).classList.toggle('active',id===t);
+  });
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// File upload
+function onDO(e){e.preventDefault();document.getElementById('dz').classList.add('over');}
+function onDL(){document.getElementById('dz').classList.remove('over');}
+function onDP(e){e.preventDefault();document.getElementById('dz').classList.remove('over');handleFiles(e.dataTransfer.files);}
+
+async function handleFiles(files) {
+  document.getElementById('pb').classList.add('on');
+  for (const f of files) await uploadFile(f);
+  document.getElementById('pb').classList.remove('on');
+  await loadDocs();
+}
+
+async function uploadFile(file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('chunk_size', document.getElementById('cs').value);
+  fd.append('chunk_overlap', document.getElementById('co').value);
+  try {
+    const r = await fetch(`${API}/api/documents/upload`, {method:'POST', body:fd});
+    const d = await r.json();
+    if (d.success) toast(`Indexed "${file.name}" — ${d.document.chunks} chunks`, '📋');
+    else toast(`Error: ${d.detail||'Upload failed'}`, '❌');
+  } catch(e) { toast(`Upload failed: ${e.message}`, '❌'); }
+}
+
+async function ingestPaste() {
+  const title = document.getElementById('pt').value.trim() || 'Pasted Note';
+  const text = document.getElementById('ptxt').value.trim();
+  if (!text) { toast('Nothing to index','⚠️'); return; }
+  try {
+    const r = await fetch(`${API}/api/documents/paste`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({title, text, chunk_size:+document.getElementById('cs').value, chunk_overlap:+document.getElementById('co').value})
+    });
+    const d = await r.json();
+    if (d.success) {
+      toast(`Indexed "${title}" — ${d.document.chunks} chunks`, '✏️');
+      document.getElementById('pt').value=''; document.getElementById('ptxt').value='';
+      await loadDocs();
+    }
+  } catch(e) { toast(`Error: ${e.message}`, '❌'); }
+}
+
+async function delDoc(id) {
+  try {
+    await fetch(`${API}/api/documents/${id}`, {method:'DELETE'});
+    toast('Document removed','🗑️');
+    await loadDocs();
+  } catch(e) { toast(`Error: ${e.message}`,'❌'); }
+}
+
+async function resetAll() {
+  if (!confirm('Clear all documents and vectors?')) return;
+  try {
+    await fetch(`${API}/api/reset`, {method:'DELETE'});
+    chatHistory=[];
+    document.getElementById('chat-area').innerHTML=`<div class="welcome" id="welcome"><div class="wc">⚕️</div><h2>Medical Knowledge Assistant</h2><p>Upload documents and ask questions.</p></div>`;
+    await loadDocs();
+    toast('All data cleared','🗑️');
+  } catch(e) { toast(`Error: ${e.message}`,'❌'); }
+}
+
+// Chat
+function useChip(el) { document.getElementById('rag-input').value=el.textContent; sendRag(); }
+function onRK(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendRag();} }
+
+function addMsg(role, content, sources=[]) {
+  const w=document.getElementById('welcome'); if(w)w.remove();
+  const area=document.getElementById('chat-area');
+  const div=document.createElement('div'); div.className=`message ${role}`;
+  const av=role==='user'?'👤':'⚕️'; const from=role==='user'?'You':'MedRAG';
+  let srcs='';
+  if(sources.length) srcs=`<div class="msrcs">${sources.map((s,i)=>`<div class="stag" onclick="showChunk(${JSON.stringify(s.text||s)},'${(s.doc_name||'Source').replace(/'/g,"&#39;")}')">
+    [${i+1}] ${s.doc_name||'Source'} <span class="score-badge">${s.score?Math.round(s.score*100)+'%':''}</span>
+  </div>`).join('')}</div>`;
+  div.innerHTML=`<div class="mav">${av}</div><div class="mwrap"><div class="mfrom">${from}</div><div class="mbody">${esc(content)}</div>${srcs}</div>`;
+  area.appendChild(div); area.scrollTop=area.scrollHeight;
+}
+
+function addTyping() {
+  const w=document.getElementById('welcome'); if(w)w.remove();
+  const area=document.getElementById('chat-area');
+  const div=document.createElement('div'); div.className='message assistant typing'; div.id='typ';
+  div.innerHTML=`<div class="mav">⚕️</div><div class="mwrap"><div class="mfrom">MedRAG</div><div class="mbody"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
+  area.appendChild(div); area.scrollTop=area.scrollHeight;
+}
+function rmTyping(){const t=document.getElementById('typ');if(t)t.remove();}
+
+function showChunk(text,doc){
+  document.getElementById('mt').textContent=`📄 ${doc}`;
+  document.getElementById('mb').textContent=text;
+  document.getElementById('cmod').classList.add('open');
+}
+
+async function sendRag() {
+  const key=getKey(); if(!key){toast('Enter API key first','🔑');return;}
+  const inp=document.getElementById('rag-input');
+  const q=inp.value.trim(); if(!q)return;
+  inp.value=''; inp.style.height='auto';
+  document.getElementById('rsend').disabled=true;
+  addMsg('user',q); chatHistory.push({role:'user',content:q}); addTyping();
+  try {
+    const r=await fetch(`${API}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({query:q,history:chatHistory.slice(-8),top_k:+document.getElementById('tk').value,api_key:key})});
+    const d=await r.json();
+    if(d.detail) throw new Error(d.detail);
+    chatHistory.push({role:'assistant',content:d.reply});
+    rmTyping(); addMsg('assistant',d.reply,d.sources||[]);
+  } catch(e){ rmTyping(); addMsg('assistant',`Error: ${e.message}`); }
+  document.getElementById('rsend').disabled=false;
+}
+
+// Summary Agent
+function sT(el,t){summType=t;document.querySelectorAll('.topt').forEach(e=>e.classList.remove('active'));el.classList.add('active');}
+function sF(el,f){summFmt=f;document.querySelectorAll('.fbt').forEach(e=>e.classList.remove('active'));el.classList.add('active');}
+
+async function runSummary() {
+  const key=getKey(); if(!key){toast('Enter API key first','🔑');return;}
+  const custom=document.getElementById('scustom').value.trim();
+  const focus=document.getElementById('focus').value.trim();
+  document.getElementById('sresult').innerHTML='<div class="aload"><div class="spinner"></div><p style="font-size:12px">Generating clinical summary…</p></div>';
+  document.getElementById('summ-btn').disabled=true;
+  try {
+    const r=await fetch(`${API}/api/agents/summary`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({doc_type:summType,output_format:summFmt,focus_areas:focus,custom_text:custom,api_key:key})});
+    const d=await r.json();
+    if(d.detail) throw new Error(d.detail);
+    document.getElementById('sresult').innerHTML=`
+      <div class="rc">${esc(d.summary)}</div>
+      <div style="margin-top:10px;font-size:10px;color:var(--ink3);">
+        Tokens used: ${d.tokens_used||'—'} · Format: ${d.format} · Type: ${d.doc_type}
+      </div>`;
+  } catch(e){document.getElementById('sresult').innerHTML=`<div class="rc" style="color:var(--red)">Error: ${esc(e.message)}</div>`;}
+  document.getElementById('summ-btn').disabled=false;
+}
+
+function copySumm(){
+  const el=document.querySelector('#sresult .rc'); if(!el)return;
+  navigator.clipboard.writeText(el.textContent).then(()=>toast('Copied!','📋'));
+}
+
+// Symptom Agent
+function sSx(el,s){patSex=s;document.querySelectorAll('.sxbtn').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+
+async function runSymptom() {
+  const key=getKey(); if(!key){toast('Enter API key first','🔑');return;}
+  if(!symSel.size&&!document.getElementById('sym-desc').value.trim()){toast('Add symptoms first','⚠️');return;}
+  const vitals={};
+  const t=document.getElementById('v-t').value; if(t)vitals.temp=t;
+  const h=document.getElementById('v-h').value; if(h)vitals.hr=h;
+  const b=document.getElementById('v-b').value; if(b)vitals.bp=b;
+  const s=document.getElementById('v-s').value; if(s)vitals.spo2=s;
+  document.getElementById('sym-result').innerHTML='<div class="aload"><div class="spinner"></div><p style="font-size:12px">Analyzing clinical presentation…</p></div>';
+  document.getElementById('sym-btn').disabled=true;
+  try {
+    const r=await fetch(`${API}/api/agents/symptom`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        symptoms:Array.from(symSel), age:+document.getElementById('pt-age').value||null,
+        sex:patSex, vitals, description:document.getElementById('sym-desc').value,
+        medical_history:document.getElementById('sym-hx').value,
+        top_k:+document.getElementById('tk').value, api_key:key
+      })});
+    const d=await r.json();
+    if(d.detail) throw new Error(d.detail);
+    renderSymResult(d);
+  } catch(e){document.getElementById('sym-result').innerHTML=`<div class="rc" style="color:var(--red)">Error: ${esc(e.message)}</div>`;}
+  document.getElementById('sym-btn').disabled=false;
+}
+
+function renderSymResult(r) {
+  const uc={Emergency:'sl-high',Urgent:'sl-med',Routine:'sl-low'};
+  const ui={Emergency:'🚨',Urgent:'⚠️',Routine:'✅'};
+  const sc={high:'fh',medium:'fm',low:'fl2'};
+  const sb={high:'sl-high',medium:'sl-med',low:'sl-low'};
+  let html=`<div class="rcard" style="border-left:3px solid ${r.urgency==='Emergency'?'var(--red)':r.urgency==='Urgent'?'var(--amber)':'var(--teal)'}">
+    <div class="rch"><span class="rci">${ui[r.urgency]||'📋'}</span><span class="rct">Urgency: ${r.urgency}</span>
+    <span class="sbadge ${uc[r.urgency]||'sl-low'}">${r.urgency}</span></div>
+    <div class="rcb">${esc(r.urgency_reason||'')}</div></div>`;
+  if(r.differentials?.length){
+    html+=`<div class="rcard"><div class="rch"><span class="rci">🔬</span><span class="rct">Differential Diagnosis</span></div><div class="rcb">`;
+    r.differentials.forEach(d=>{
+      html+=`<div style="margin-bottom:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+          <strong>${esc(d.name)}</strong><span class="sbadge ${sb[d.severity]||'sl-low'}">${d.icd10||''}</span></div>
+        <div class="pbw"><div class="pbl"><span>${esc(d.rationale||'')}</span><span>${d.probability||0}%</span></div>
+        <div class="pbt"><div class="pbf ${sc[d.severity]||'fl2'}" style="width:${d.probability||0}%"></div></div></div></div>`;
+    });
+    html+=`</div></div>`;
+  }
+  if(r.red_flags?.length) html+=`<div class="rcard" style="border-left:3px solid var(--red)"><div class="rch"><span class="rci">🚩</span><span class="rct">Red Flag Symptoms</span></div><div class="rcb">${r.red_flags.map(f=>`<div style="padding:3px 0;color:var(--red)">▸ ${esc(f)}</div>`).join('')}</div></div>`;
+  if(r.investigations?.length) html+=`<div class="rcard"><div class="rch"><span class="rci">🧪</span><span class="rct">Investigations</span></div><div class="rcb">${r.investigations.map(i=>`<div style="padding:3px 0">▸ ${esc(i)}</div>`).join('')}</div></div>`;
+  if(r.management?.length) html+=`<div class="rcard"><div class="rch"><span class="rci">💊</span><span class="rct">Initial Management</span></div><div class="rcb">${r.management.map(m=>`<div style="padding:3px 0">▸ ${esc(m)}</div>`).join('')}</div></div>`;
+  if(r.when_to_seek_care) html+=`<div class="rcard" style="border-left:3px solid var(--amber)"><div class="rch"><span class="rci">🏥</span><span class="rct">When to Seek Care</span></div><div class="rcb">${esc(r.when_to_seek_care)}</div></div>`;
+  if(r.sources?.length) html+=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">${r.sources.map((s,i)=>`<div class="stag" onclick="showChunk(${JSON.stringify(s.text)},'${(s.doc_name||'').replace(/'/g,"&#39;")}'">[${i+1}] ${s.doc_name}</div>`).join('')}</div>`;
+  if(r.disclaimer) html+=`<div style="font-size:10px;color:var(--ink3);padding:8px;text-align:center;font-style:italic;">⚕️ ${esc(r.disclaimer)}</div>`;
+  document.getElementById('sym-result').innerHTML=html;
+  setTimeout(()=>{document.querySelectorAll('.pbf').forEach(el=>{const w=el.style.width;el.style.width='0';setTimeout(()=>el.style.width=w,50);});},100);
+}
+</script>
+</body>
+</html>
